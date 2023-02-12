@@ -6,8 +6,7 @@ class SimConfig:
         self.config = None
         with open(scene_file_path, "r") as f:
             self.config = json.load(f)
-        print(self.config)
-    
+
     def get_cfg(self, name, enforce_exist=False):
         if enforce_exist:
             assert name in self.config["Configuration"]

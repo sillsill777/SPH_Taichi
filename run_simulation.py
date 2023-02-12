@@ -15,17 +15,20 @@ if __name__ == "__main__":
                         help='scene file')
     args = parser.parse_args()
     scene_path = args.scene_file
+    print('Scene path: ',scene_path)
     config = SimConfig(scene_file_path=scene_path)
-    scene_name = scene_path.split("/")[-1].split(".")[0]
+    scene_name = scene_path.split("/")[-1].split(".")[0] # dragon_bath
 
-    substeps = config.get_cfg("numberOfStepsPerRenderUpdate")
-    output_frames = config.get_cfg("exportFrame")
+    substeps = config.get_cfg("numberOfStepsPerRenderUpdate") # 1
+    output_frames = config.get_cfg("exportFrame") # false
     output_interval = int(0.016 / config.get_cfg("timeStepSize"))
-    output_ply = config.get_cfg("exportPly")
-    output_obj = config.get_cfg("exportObj")
+    # time step size= 0.0004, 0.016->62.5Hz?   output_interval = 40
+    output_ply = config.get_cfg("exportPly") # false
+    output_obj = config.get_cfg("exportObj") # false
     series_prefix = "{}_output/particle_object_{}.ply".format(scene_name, "{}")
+
     if output_frames:
-        os.makedirs(f"{scene_name}_output_img", exist_ok=True)
+        os.makedirs(f"{scene_name}_output_img", exist_ok=True) # output image
     if output_ply:
         os.makedirs(f"{scene_name}_output", exist_ok=True)
 
