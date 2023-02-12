@@ -280,6 +280,7 @@ class ParticleSystem:
                             new_particles_is_dynamic,
                             new_particles_color
                             )
+    # directly calling self._add_particles also works. Why using add_particles???
 
     @ti.kernel
     def _add_particles(self,
@@ -292,7 +293,7 @@ class ParticleSystem:
                        new_particles_material: ti.types.ndarray(),
                        new_particles_is_dynamic: ti.types.ndarray(),
                        new_particles_color: ti.types.ndarray()):
-        for p in range(self.particle_num[None], self.particle_num[None] + new_particles_num):
+        for p in range(self.particle_num[None], self.particle_num[None] + new_particles_num):  # [0, 423500)
             v = ti.Vector.zero(float, self.dim)
             x = ti.Vector.zero(float, self.dim)
             for d in ti.static(range(self.dim)):
@@ -480,7 +481,8 @@ class ParticleSystem:
         num_dim = []
         for i in range(self.dim):
             num_dim.append(
-                np.arange(start[i], end[i], self.particle_diameter))
+                np.arange(start[i], end[i], self.particle_diameter))  # end[i] is not included but start[i] is included
+        print('num_dim ',[len(n) for n in num_dim])  # [55,140,55]
         return reduce(lambda x, y: x * y,
                       [len(n) for n in num_dim])
 
@@ -495,33 +497,69 @@ class ParticleSystem:
                  pressure=None,
                  velocity=None):
 
+        """
+        :param object_id: 0
+        :param lower_corner: start
+        :param cube_size: (end-start)*scale
+        :param material: 1 -> 1 indicate fluid
+        :param is_dynamic: 1 -> enforce fluid dynamic
+        :param color: [50,100,200]
+        :param density: 1000.0
+        :param pressure: None
+        :param velocity: [0,-1,0]
+        :return:
+        """
+
         num_dim = []
         for i in range(self.dim):
             num_dim.append(
                 np.arange(lower_corner[i], lower_corner[i] + cube_size[i],
                           self.particle_diameter))
         num_new_particles = reduce(lambda x, y: x * y,
-                                   [len(n) for n in num_dim])
-        print('particle num ', num_new_particles)
+                                   [len(n) for n in num_dim])  # if scale=1 then same as compute_cube_particle_num()
+        print('particle num ', num_new_particles)  # 423,500
+        # num_dim's element num -> [55,140,55]
 
-        new_positions = np.array(np.meshgrid(*num_dim,
-                                             sparse=False,
-                                             indexing='ij'),
-                                 dtype=np.float32)
+        new_positions = np.array(np.meshgrid(*num_dim, sparse=False, indexing='ij'), dtype=np.float32) # [3,55,140,55]
+
         new_positions = new_positions.reshape(-1,
                                               reduce(lambda x, y: x * y, list(new_positions.shape[1:]))).transpose()
-        print("new position shape ", new_positions.shape)
+
+        print("new position shape ", new_positions.shape) # (423500, 3)
+        """
+        [
+        [ x_start, y_start, z_start],
+        [x_start, y_start, z_start + 0.02],
+        [x_start, y_start, z_start + 0.04]
+        ...
+        [x_start, y_start, z_end],
+        [x_start, y_start + 0.02, z_start],
+        [x_start, y_start + 0.02, z_start + 0.02],
+        ...
+        [x_start, y_end, z_end],
+        [x_start + 0.02, y_start, z_start],
+        [x_start + 0.02, y_start, z_start + 0.02],
+        ...
+        [x_end, y_end, z_end]
+        ]
+        """
         if velocity is None:
             velocity_arr = np.full_like(new_positions, 0, dtype=np.float32)
         else:
-            velocity_arr = np.array([velocity for _ in range(num_new_particles)], dtype=np.float32)
+            velocity_arr = np.array([velocity for _ in range(num_new_particles)], dtype=np.float32)  # (423500, 3)
 
-        material_arr = np.full_like(np.zeros(num_new_particles, dtype=np.int32), material)
-        is_dynamic_arr = np.full_like(np.zeros(num_new_particles, dtype=np.int32), is_dynamic)
+        material_arr = np.full_like(np.zeros(num_new_particles, dtype=np.int32), material)  # 1
+        is_dynamic_arr = np.full_like(np.zeros(num_new_particles, dtype=np.int32), is_dynamic)  # 1
+
         color_arr = np.stack([np.full_like(np.zeros(num_new_particles, dtype=np.int32), c) for c in color], axis=1)
+
         density_arr = np.full_like(np.zeros(num_new_particles, dtype=np.float32),
                                    density if density is not None else 1000.)
         pressure_arr = np.full_like(np.zeros(num_new_particles, dtype=np.float32),
-                                    pressure if pressure is not None else 0.)
+                                    pressure if pressure is not None else 0.)  # pressure = 0
+        print(color_arr.shape,density_arr.shape,pressure_arr.shape)  # (423500, 3) (423500,) (423500,)
+
         self.add_particles(object_id, num_new_particles, new_positions, velocity_arr, density_arr, pressure_arr,
                            material_arr, is_dynamic_arr, color_arr)
+
+        # self._add_particles also works. Why using self.add_particles??
