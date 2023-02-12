@@ -137,22 +137,25 @@ class ParticleSystem:
 
         self.color = ti.Vector.field(3, dtype=int, shape=self.particle_max_num)
         self.is_dynamic = ti.field(dtype=int, shape=self.particle_max_num)
-
+        # ------------------------------------- particle related properties total 12 of them
         if self.cfg.get_cfg("simulationMethod") == 4:  # Not in dragon_bath simulation
             self.dfsph_factor = ti.field(dtype=float, shape=self.particle_max_num)
             self.density_adv = ti.field(dtype=float, shape=self.particle_max_num)
 
         # Buffer for sort
         self.object_id_buffer = ti.field(dtype=int, shape=self.particle_max_num)
+
         self.x_buffer = ti.Vector.field(self.dim, dtype=float, shape=self.particle_max_num)
         self.x_0_buffer = ti.Vector.field(self.dim, dtype=float, shape=self.particle_max_num)
         self.v_buffer = ti.Vector.field(self.dim, dtype=float, shape=self.particle_max_num)
         self.acceleration_buffer = ti.Vector.field(self.dim, dtype=float, shape=self.particle_max_num)
+
         self.m_V_buffer = ti.field(dtype=float, shape=self.particle_max_num)
         self.m_buffer = ti.field(dtype=float, shape=self.particle_max_num)
         self.density_buffer = ti.field(dtype=float, shape=self.particle_max_num)
         self.pressure_buffer = ti.field(dtype=float, shape=self.particle_max_num)
         self.material_buffer = ti.field(dtype=int, shape=self.particle_max_num)
+
         self.color_buffer = ti.Vector.field(3, dtype=int, shape=self.particle_max_num)
         self.is_dynamic_buffer = ti.field(dtype=int, shape=self.particle_max_num)
 
@@ -246,17 +249,31 @@ class ParticleSystem:
 
     @ti.func
     def add_particle(self, p, obj_id, x, v, density, pressure, material, is_dynamic, color):
+        """
+        self.add_particle(p, object_id, x, v,
+                          new_particle_density[p - self.particle_num[None]],
+                          new_particle_pressure[p - self.particle_num[None]],
+                          new_particles_material[p - self.particle_num[None]],
+                          new_particles_is_dynamic[p - self.particle_num[None]],
+                          ti.Vector([new_particles_color[p - self.particle_num[None], i] for i in range(3)])
+                          )
+        """
         self.object_id[p] = obj_id
-        self.x[p] = x
-        self.x_0[p] = x
-        self.v[p] = v
+        self.x[p] = x  # Vec
+        self.x_0[p] = x  # Vec
+        self.v[p] = v  # Vec
         self.density[p] = density
         self.m_V[p] = self.m_V0
+        """
+        self.m_V0 = 0.8 * self.particle_diameter ** self.dim  # 0.8*(diameter**3)
+        # (4/3)*pi/8=0.52...  m_V0 -> volume with margin?
+        """
         self.m[p] = self.m_V0 * density
         self.pressure[p] = pressure
         self.material[p] = material
         self.is_dynamic[p] = is_dynamic
-        self.color[p] = color
+        self.color[p] = color  # Vec
+        # acceleration is not here.
 
     def add_particles(self,
                       object_id: int,
@@ -296,9 +313,23 @@ class ParticleSystem:
         for p in range(self.particle_num[None], self.particle_num[None] + new_particles_num):  # [0, 423500)
             v = ti.Vector.zero(float, self.dim)
             x = ti.Vector.zero(float, self.dim)
+            """
+            v = ti.Vector([0.,0.,0.])
+            x = ti.Vector([0.,0.,0.])
+            -----------------------------------also works-----------
+            """
             for d in ti.static(range(self.dim)):
                 v[d] = new_particles_velocity[p - self.particle_num[None], d]
                 x[d] = new_particles_positions[p - self.particle_num[None], d]
+            """
+            But instead of upper for loop to initialize v and x. It is impossible to do it like below
+            
+            v= new_particles_velocity[p - self.particle_num[None]]  -> new_particle_velocity has dim=2 
+            but in indexing only 1 dimension info is given
+            
+            Also v =  new_particles_velocity[p - self.particle_num[None], :] -> error
+            since slicing is not supported.
+            """
             self.add_particle(p, object_id, x, v,
                               new_particle_density[p - self.particle_num[None]],
                               new_particle_pressure[p - self.particle_num[None]],
