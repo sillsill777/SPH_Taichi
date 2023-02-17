@@ -68,7 +68,7 @@ class ParticleSystem:
             각 그리드의 변의 길이를 particle의 지름으로 잡았을 때 그런 그리드 정육면체가 몇개가 들어가는지 
             """
 
-            fluid["particleNum"] = particle_num
+            fluid["particleNum"] = particle_num  # 423,500
             print('fluid particla num: ', particle_num)
             self.object_collection[fluid["objectId"]] = fluid
             fluid_particle_num += particle_num
@@ -94,7 +94,7 @@ class ParticleSystem:
 
         self.fluid_particle_num = fluid_particle_num
         self.solid_particle_num = rigid_particle_num
-        self.particle_max_num = fluid_particle_num + rigid_particle_num
+        self.particle_max_num = fluid_particle_num + rigid_particle_num  # total particle num(fluid+solid)
         self.num_rigid_bodies = len(rigid_blocks) + len(rigid_bodies)
 
         #### TODO: Handle the Particle Emitter ####
@@ -107,7 +107,7 @@ class ParticleSystem:
             # TODO: Here we actually only need to store rigid boides, however the object id of rigid may not start from 0, so allocate center of mass for all objects
             self.rigid_rest_cm = ti.Vector.field(self.dim, dtype=float, shape=self.num_rigid_bodies + len(fluid_blocks))
 
-        # Particle num of each grid
+        # Particle num of each grid###################################################################################
         """
         # Grid related properties
         self.grid_size = self.support_radius  # 4r
@@ -120,8 +120,8 @@ class ParticleSystem:
         # 468,750
 
         self.prefix_sum_executor = ti.algorithms.PrefixSumExecutor(self.grid_particles_num.shape[0])
-
-        # Particle related properties
+        ##############################################################################################################
+        # Particle related properties################################################################################
         self.object_id = ti.field(dtype=int, shape=self.particle_max_num)  # fluid+rigid body
 
         self.x = ti.Vector.field(self.dim, dtype=float, shape=self.particle_max_num)
@@ -133,16 +133,17 @@ class ParticleSystem:
         self.m = ti.field(dtype=float, shape=self.particle_max_num)
         self.density = ti.field(dtype=float, shape=self.particle_max_num)
         self.pressure = ti.field(dtype=float, shape=self.particle_max_num)
-        self.material = ti.field(dtype=int, shape=self.particle_max_num)
+        self.material = ti.field(dtype=int, shape=self.particle_max_num)  # int
 
-        self.color = ti.Vector.field(3, dtype=int, shape=self.particle_max_num)
-        self.is_dynamic = ti.field(dtype=int, shape=self.particle_max_num)
+        self.color = ti.Vector.field(3, dtype=int, shape=self.particle_max_num)  # int
+        self.is_dynamic = ti.field(dtype=int, shape=self.particle_max_num)  # int
         # ------------------------------------- particle related properties total 12 of them
+
         if self.cfg.get_cfg("simulationMethod") == 4:  # Not in dragon_bath simulation
             self.dfsph_factor = ti.field(dtype=float, shape=self.particle_max_num)
             self.density_adv = ti.field(dtype=float, shape=self.particle_max_num)
 
-        # Buffer for sort
+        # Buffer for sort###################################################################################
         self.object_id_buffer = ti.field(dtype=int, shape=self.particle_max_num)
 
         self.x_buffer = ti.Vector.field(self.dim, dtype=float, shape=self.particle_max_num)
@@ -162,6 +163,7 @@ class ParticleSystem:
         if self.cfg.get_cfg("simulationMethod") == 4:
             self.dfsph_factor_buffer = ti.field(dtype=float, shape=self.particle_max_num)
             self.density_adv_buffer = ti.field(dtype=float, shape=self.particle_max_num)
+        #######################################################################################################
 
         # Grid id for each particle
         self.grid_ids = ti.field(int, shape=self.particle_max_num)
@@ -181,10 +183,10 @@ class ParticleSystem:
             offset = np.array(fluid["translation"])
             start = np.array(fluid["start"]) + offset
             end = np.array(fluid["end"]) + offset
-            scale = np.array(fluid["scale"])
-            velocity = fluid["velocity"]
-            density = fluid["density"]
-            color = fluid["color"]
+            scale = np.array(fluid["scale"])  # [1,1,1]
+            velocity = fluid["velocity"]  # [0,-1,0]
+            density = fluid["density"]  # 1000
+            color = fluid["color"]  # [50, 100, 200]
             self.add_cube(object_id=obj_id,
                           lower_corner=start,
                           cube_size=(end - start) * scale,
@@ -195,7 +197,7 @@ class ParticleSystem:
                           material=1)  # 1 indicates fluid
 
         # TODO: Handle rigid block
-        # Rigid block
+        # Rigid block  Not in this example(dragon bath)
         for rigid in rigid_blocks:
             obj_id = rigid["objectId"]
             offset = np.array(rigid["translation"])
@@ -221,13 +223,13 @@ class ParticleSystem:
             self.object_id_rigid_body.add(obj_id)
             num_particles_obj = rigid_body["particleNum"]
             voxelized_points_np = rigid_body["voxelizedPoints"]
-            is_dynamic = rigid_body["isDynamic"]
+            is_dynamic = rigid_body["isDynamic"]  # false
             if is_dynamic:
                 velocity = np.array(rigid_body["velocity"], dtype=np.float32)
             else:
                 velocity = np.array([0.0 for _ in range(self.dim)], dtype=np.float32)
-            density = rigid_body["density"]
-            color = np.array(rigid_body["color"], dtype=np.int32)
+            density = rigid_body["density"]  # 1000
+            color = np.array(rigid_body["color"], dtype=np.int32)  # [255,255,255]
             self.add_particles(obj_id,
                                num_particles_obj,
                                np.array(voxelized_points_np, dtype=np.float32),  # position
@@ -235,7 +237,7 @@ class ParticleSystem:
                                density * np.ones(num_particles_obj, dtype=np.float32),  # density
                                np.zeros(num_particles_obj, dtype=np.float32),  # pressure
                                np.array([0 for _ in range(num_particles_obj)], dtype=np.int32),  # material is solid
-                               is_dynamic * np.ones(num_particles_obj, dtype=np.int32),  # is_dynamic
+                               is_dynamic * np.ones(num_particles_obj, dtype=np.int32),  # is_dynamic=0
                                np.stack([color for _ in range(num_particles_obj)]))  # color
 
     def build_solver(self):  # WCSPH
@@ -297,6 +299,7 @@ class ParticleSystem:
                             new_particles_is_dynamic,
                             new_particles_color
                             )
+
     # directly calling self._add_particles also works. Why using add_particles???
 
     @ti.kernel
@@ -325,7 +328,7 @@ class ParticleSystem:
             But instead of upper for loop to initialize v and x. It is impossible to do it like below
             
             v= new_particles_velocity[p - self.particle_num[None]]  -> new_particle_velocity has dim=2 
-            but in indexing only 1 dimension info is given
+            but in indexing, only 1 dimension info is given
             
             Also v =  new_particles_velocity[p - self.particle_num[None], :] -> error
             since slicing is not supported.
@@ -341,7 +344,7 @@ class ParticleSystem:
 
     @ti.func
     def pos_to_index(self, pos):
-        return (pos / self.grid_size).cast(int)
+        return (pos / self.grid_size).cast(int)  # floor
 
     @ti.func
     def flatten_grid_index(self, grid_index):
@@ -353,6 +356,11 @@ class ParticleSystem:
 
     @ti.func
     def is_static_rigid_body(self, p):
+        """
+        # Material
+        self.material_solid = 0
+        self.material_fluid = 1
+        """
         return self.material[p] == self.material_solid and (not self.is_dynamic[p])
 
     @ti.func
@@ -364,6 +372,10 @@ class ParticleSystem:
         for I in ti.grouped(self.grid_particles_num):
             self.grid_particles_num[I] = 0
         for I in ti.grouped(self.x):
+            """
+            self.grid_ids = ti.field(int, shape=self.particle_max_num)
+            self.grid_particles_num = ti.field(int, shape=int(self.grid_num[0] * self.grid_num[1] * self.grid_num[2]))
+            """
             grid_index = self.get_flatten_grid_index(self.x[I])
             self.grid_ids[I] = grid_index
             ti.atomic_add(self.grid_particles_num[grid_index], 1)
@@ -379,6 +391,26 @@ class ParticleSystem:
             if self.grid_ids[I] - 1 >= 0:
                 base_offset = self.grid_particles_num[self.grid_ids[I] - 1]
             self.grid_ids_new[I] = ti.atomic_sub(self.grid_particles_num_temp[self.grid_ids[I]], 1) - 1 + base_offset
+
+            """
+            'grid_ids[i]' contains for every particle i in the simulator(particle_max_num), what grid index 
+            that the particle i belongs to.
+            For example grid_ids=[1,0,1,3,2,2,2]-> particle 0 belongs to grid index 1,
+            particle 1 belongs to grid index 0, particle 2 belongs to grid index 1 ...
+            
+            grid index 0 -> there is one particle exists.
+            grid index 1-> there are two particle exists.
+            grid index 2-> there are three particle exists.
+            grid index 3-> there is one particle exists.
+            
+            If we want to sort grid_id then result will be [0,1,1,2,2,2,3]. To achieve this,
+            particle 0 must go to index 1, particle 1 must go to index 0, particle 2 must go to index 2,
+            particle 3 must go to 6, particle 4 must go to 3, ... ->[1,0,2,6,3,4,5]
+            
+            where as 'grid_ids_new[i]' contains for every particle i in the simulator, what index should it be
+            for grid_ids to be sorted. Above example it will be 'grid_idx_new'=[1,0,2,6,3,4,5]
+            
+            """
 
         for I in ti.grouped(self.grid_ids):
             new_index = self.grid_ids_new[I]
@@ -418,7 +450,24 @@ class ParticleSystem:
             if ti.static(self.simulation_method == 4):
                 self.dfsph_factor[I] = self.dfsph_factor_buffer[I]
                 self.density_adv[I] = self.density_adv_buffer[I]
-
+        """
+        There are total particle_max_num particles(0, 1, 2, ... particle_max_num-1)
+        And each particle has property grid_ids, object_id, x_0, x, v, acceleration ...
+        Now due to counting sort, grid_ids is sorted. For example grid_ids=[0,0,0,1,1,2,3]
+        -> particle 0,1,2 belongs to grid index 0, particle 3,4 belongs to grid index 1,
+        particle 5 belongs to grid index 2, particle 6 belongs to grid index 3.
+        
+        particle 0 has property object_id[0], x_0[0], x[0], v[0], acc[0], m_V[0], m[0],... with grid index 0
+        particle 1 has property object_id[1], x_0[1], x[1], v[1], acc[1], m_V[1], m[1],... with grid index 0
+        particle 2 has property object_id[2], x_0[2], x[2], v[2], acc[2], m_V[2], m[2],... with grid index 0
+        
+        particle 3 has property object_id[3], x_0[3], x[3], v[3], acc[3], m_V[3], m[3],... with grid index 1
+        particle 4 has property object_id[4], x_0[4], x[4], v[4], acc[4], m_V[4], m[4],... with grid index 1
+        
+        particle 5 has property object_id[5], x_0[5], x[5], v[5], acc[5], m_V[5], m[5],... with grid index 2
+        
+        particle 6 has property object_id[6], x_0[6], x[6], v[6], acc[6], m_V[6], m[6],... with grid index 6
+        """
     def initialize_particle_system(self):
         self.update_grid_id()
         self.prefix_sum_executor.run(self.grid_particles_num)
@@ -513,7 +562,7 @@ class ParticleSystem:
         for i in range(self.dim):
             num_dim.append(
                 np.arange(start[i], end[i], self.particle_diameter))  # end[i] is not included but start[i] is included
-        print('num_dim ',[len(n) for n in num_dim])  # [55,140,55]
+        print('num_dim: ', [len(n) for n in num_dim])  # [55,140,55]
         return reduce(lambda x, y: x * y,
                       [len(n) for n in num_dim])
 
@@ -551,12 +600,12 @@ class ParticleSystem:
         print('particle num ', num_new_particles)  # 423,500
         # num_dim's element num -> [55,140,55]
 
-        new_positions = np.array(np.meshgrid(*num_dim, sparse=False, indexing='ij'), dtype=np.float32) # [3,55,140,55]
+        new_positions = np.array(np.meshgrid(*num_dim, sparse=False, indexing='ij'), dtype=np.float32)  # [3,55,140,55]
 
         new_positions = new_positions.reshape(-1,
                                               reduce(lambda x, y: x * y, list(new_positions.shape[1:]))).transpose()
 
-        print("new position shape ", new_positions.shape) # (423500, 3)
+        print("new position shape ", new_positions.shape)  # (423500, 3)
         """
         [
         [ x_start, y_start, z_start],
@@ -588,7 +637,7 @@ class ParticleSystem:
                                    density if density is not None else 1000.)
         pressure_arr = np.full_like(np.zeros(num_new_particles, dtype=np.float32),
                                     pressure if pressure is not None else 0.)  # pressure = 0
-        print(color_arr.shape,density_arr.shape,pressure_arr.shape)  # (423500, 3) (423500,) (423500,)
+        print(color_arr.shape, density_arr.shape, pressure_arr.shape)  # (423500, 3) (423500,) (423500,)
 
         self.add_particles(object_id, num_new_particles, new_positions, velocity_arr, density_arr, pressure_arr,
                            material_arr, is_dynamic_arr, color_arr)

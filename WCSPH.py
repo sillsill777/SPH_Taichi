@@ -13,7 +13,7 @@ class WCSPHSolver(SPHBase):
         self.stiffness = self.ps.cfg.get_cfg("stiffness")
         
         self.surface_tension = 0.01
-        self.dt[None] = self.ps.cfg.get_cfg("timeStepSize")
+        self.dt[None] = self.ps.cfg.get_cfg("timeStepSize")  # 0.0004
     
 
     @ti.func

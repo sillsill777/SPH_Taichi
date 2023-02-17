@@ -15,7 +15,7 @@ class SPHBase:
         self.viscosity = 0.01  # viscosity
 
         self.density_0 = 1000.0  # reference density
-        self.density_0 = self.ps.cfg.get_cfg("density0")
+        self.density_0 = self.ps.cfg.get_cfg("density0")  # 1000
 
         self.dt = ti.field(float, shape=())
         self.dt[None] = 1e-4
@@ -23,7 +23,7 @@ class SPHBase:
     @ti.func
     def cubic_kernel(self, r_norm):
         res = ti.cast(0.0, ti.f32)
-        h = self.ps.support_radius
+        h = self.ps.support_radius  # 4r
         # value of cubic spline smoothing kernel
         k = 1.0
         if self.ps.dim == 1:
@@ -79,6 +79,7 @@ class SPHBase:
 
     def initialize(self):
         self.ps.initialize_particle_system()
+        print(f"Current particle num: {self.ps.particle_num[None]}, Particle max num: {self.ps.particle_max_num}")
         for r_obj_id in self.ps.object_id_rigid_body:
             self.compute_rigid_rest_cm(r_obj_id)
         self.compute_static_boundary_volume()
@@ -86,7 +87,7 @@ class SPHBase:
 
     @ti.kernel
     def compute_rigid_rest_cm(self, object_id: int):
-        self.ps.rigid_rest_cm[object_id] = self.compute_com(object_id)
+        self.ps.rigid_rest_cm[object_id] = self.compute_com(object_id)  # [nan,nan,nan]
 
     @ti.kernel
     def compute_static_boundary_volume(self):
@@ -95,7 +96,8 @@ class SPHBase:
                 continue
             delta = self.cubic_kernel(0.0)
             self.ps.for_all_neighbors(p_i, self.compute_boundary_volume_task, delta)
-            self.ps.m_V[p_i] = 1.0 / delta * 3.0  # TODO: the 3.0 here is a coefficient for missing particles by trail and error... need to figure out how to determine it sophisticatedly
+            self.ps.m_V[p_i] = 1.0 / delta * 3.0
+            # TODO: the 3.0 here is a coefficient for missing particles by trail and error... need to figure out how to determine it sophisticatedly
 
     @ti.func
     def compute_boundary_volume_task(self, p_i, p_j, delta: ti.template()):
@@ -184,12 +186,16 @@ class SPHBase:
         sum_m = 0.0
         cm = ti.Vector([0.0, 0.0, 0.0])
         for p_i in range(self.ps.particle_num[None]):
-            if self.ps.is_dynamic_rigid_body(p_i) and self.ps.object_id[p_i] == object_id:
+            # actually self.ps.particle_num[None]==self.ps.particle_max_num, 441,996
+            if self.ps.is_dynamic_rigid_body(p_i) and self.ps.object_id[p_i] == object_id: # is dynamic rigid = false
+                print(" is in??????????????????????????????????")  # -> not excuted
                 mass = self.ps.m_V0 * self.ps.density[p_i]
                 cm += mass * self.ps.x[p_i]
                 sum_m += mass
         cm /= sum_m
-        return cm
+        #print(sum_m)->0.0
+        #print(cm)->[nan,nan,nan] ->???????????
+        return cm  #[nan,nan,nan]
     
 
     @ti.kernel
