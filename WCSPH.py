@@ -36,6 +36,7 @@ class WCSPHSolver(SPHBase):
         for p_i in ti.grouped(self.ps.x):
             if self.ps.material[p_i] != self.ps.material_fluid:
                 continue
+            # if fluid
             self.ps.density[p_i] = self.ps.m_V[p_i] * self.cubic_kernel(0.0)
             den = 0.0
             self.ps.for_all_neighbors(p_i, self.compute_densities_task, den)
@@ -50,7 +51,8 @@ class WCSPHSolver(SPHBase):
         # Fluid neighbors
         if self.ps.material[p_j] == self.ps.material_fluid:
             x_j = self.ps.x[p_j]
-            density_j = self.ps.density[p_j] * self.density_0 / self.density_0  # TODO: The density_0 of the neighbor may be different when the fluid density is different
+            density_j = self.ps.density[p_j] * self.density_0 / self.density_0
+            # TODO: The density_0 of the neighbor may be different when the fluid density is different
             dpj = self.ps.pressure[p_j] / (density_j * density_j)
             # Compute the pressure force contribution, Symmetric Formula
             ret += -self.density_0 * self.ps.m_V[p_j] * (dpi + dpj) \
@@ -92,7 +94,7 @@ class WCSPHSolver(SPHBase):
         ############## Surface Tension ###############
         if self.ps.material[p_j] == self.ps.material_fluid:
             # Fluid neighbors
-            diameter2 = self.ps.particle_diameter * self.ps.particle_diameter
+            diameter2 = self.ps.particle_diameter * self.ps.particle_diameter  # 4r**2
             x_j = self.ps.x[p_j]
             r = x_i - x_j
             r2 = r.dot(r)
@@ -107,8 +109,7 @@ class WCSPHSolver(SPHBase):
         x_j = self.ps.x[p_j]
         # Compute the viscosity force contribution
         r = x_i - x_j
-        v_xy = (self.ps.v[p_i] -
-                self.ps.v[p_j]).dot(r)
+        v_xy = (self.ps.v[p_i] - self.ps.v[p_j]).dot(r)
         
         if self.ps.material[p_j] == self.ps.material_fluid:
             f_v = d * self.viscosity * (self.ps.m[p_j] / (self.ps.density[p_j])) * v_xy / (

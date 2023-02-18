@@ -34,6 +34,7 @@ def fff():
         c[i]=ti.Vector([1.,2.,3.])
     for j in ti.grouped(d):
         print(j)
+        print(j[0])
         d[j]=ti.Vector([4.,5.,6.])
 @ti.kernel
 def f():
@@ -41,6 +42,7 @@ def f():
         print(c[i])
     for j in d:
         print(d[j])
+print('fff')
 fff()
 f()
 print("========================================")
@@ -67,3 +69,13 @@ def aa():
 aa()
 z=ti.cast(0.0,ti.f32)
 print(z)
+print('=================================')
+@ti.kernel
+def for_all_neighbors():
+    for offset in ti.grouped(ti.ndrange(*((-1, 2),) * 3)):
+        print(offset)
+
+for_all_neighbors()
+
+a=ti.Vector([1,1,0])
+print(a.norm())

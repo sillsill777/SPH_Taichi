@@ -56,6 +56,7 @@ if __name__ == "__main__":
     # Invisible objects
     invisible_objects = config.get_cfg("invisibleObjects")
     if not invisible_objects:
+        print('no invisible obj')
         invisible_objects = []
 
     # Draw the lines for domain
@@ -78,11 +79,12 @@ if __name__ == "__main__":
 
     cnt = 0
     cnt_ply = 0
-
+    print('object id rigid body: ',ps.object_id_rigid_body)
     while window.running:
         for i in range(substeps):
             solver.step()
-        ps.copy_to_vis_buffer(invisible_objects=invisible_objects)
+
+        ps.copy_to_vis_buffer(invisible_objects=invisible_objects)  # no invisible obj
         if ps.dim == 2:
             canvas.set_background_color(background_color)
             canvas.circles(ps.x_vis_buffer, radius=ps.particle_radius, color=particle_color)

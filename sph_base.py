@@ -91,13 +91,17 @@ class SPHBase:
 
     @ti.kernel
     def compute_static_boundary_volume(self):
+        i=0
         for p_i in ti.grouped(self.ps.x):
             if not self.ps.is_static_rigid_body(p_i):
                 continue
+            i+=1
+            # if static rigid
             delta = self.cubic_kernel(0.0)
             self.ps.for_all_neighbors(p_i, self.compute_boundary_volume_task, delta)
             self.ps.m_V[p_i] = 1.0 / delta * 3.0
             # TODO: the 3.0 here is a coefficient for missing particles by trail and error... need to figure out how to determine it sophisticatedly
+        print('i: ',i)  # 18496
 
     @ti.func
     def compute_boundary_volume_task(self, p_i, p_j, delta: ti.template()):
@@ -110,6 +114,7 @@ class SPHBase:
         for p_i in ti.grouped(self.ps.x):
             if not self.ps.is_dynamic_rigid_body(p_i):
                 continue
+            print('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa')  # -> not executed in Dragon bath sim
             delta = self.cubic_kernel(0.0)
             self.ps.for_all_neighbors(p_i, self.compute_boundary_volume_task, delta)
             self.ps.m_V[p_i] = 1.0 / delta * 3.0  # TODO: the 3.0 here is a coefficient for missing particles by trail and error... need to figure out how to determine it sophisticatedly
@@ -121,8 +126,7 @@ class SPHBase:
     def simulate_collisions(self, p_i, vec):
         # Collision factor, assume roughly (1-c_f)*velocity loss after collision
         c_f = 0.5
-        self.ps.v[p_i] -= (
-            1.0 + c_f) * self.ps.v[p_i].dot(vec) * vec
+        self.ps.v[p_i] -= (1.0 + c_f) * self.ps.v[p_i].dot(vec) * vec
 
     @ti.kernel
     def enforce_boundary_2D(self, particle_type:int):
@@ -154,7 +158,7 @@ class SPHBase:
             if self.ps.material[p_i] == particle_type and self.ps.is_dynamic[p_i]:
                 pos = self.ps.x[p_i]
                 collision_normal = ti.Vector([0.0, 0.0, 0.0])
-                if pos[0] > self.ps.domain_size[0] - self.ps.padding:
+                if pos[0] > self.ps.domain_size[0] - self.ps.padding:  # padding=grid_size=4r
                     collision_normal[0] += 1.0
                     self.ps.x[p_i][0] = self.ps.domain_size[0] - self.ps.padding
                 if pos[0] <= self.ps.padding:
@@ -177,8 +181,7 @@ class SPHBase:
 
                 collision_normal_length = collision_normal.norm()
                 if collision_normal_length > 1e-6:
-                    self.simulate_collisions(
-                            p_i, collision_normal / collision_normal_length)
+                    self.simulate_collisions(p_i, collision_normal / collision_normal_length)
 
 
     @ti.func
@@ -252,8 +255,9 @@ class SPHBase:
 
     def solve_rigid_body(self):
         for i in range(1):
-            for r_obj_id in self.ps.object_id_rigid_body:
-                if self.ps.object_collection[r_obj_id]["isDynamic"]:
+            for r_obj_id in self.ps.object_id_rigid_body: # object id rigid body:  {1}
+                if self.ps.object_collection[r_obj_id]["isDynamic"]:  # -> not executed in dragon bath
+                    print('bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb')
                     R = self.solve_constraints(r_obj_id)
 
                     if self.ps.cfg.get_cfg("exportObj"):
@@ -268,10 +272,10 @@ class SPHBase:
 
     def step(self):
         self.ps.initialize_particle_system()
-        self.compute_moving_boundary_volume()
+        self.compute_moving_boundary_volume()  # have no effect
         self.substep()
-        self.solve_rigid_body()
+        self.solve_rigid_body()  # have no effect
         if self.ps.dim == 2:
             self.enforce_boundary_2D(self.ps.material_fluid)
         elif self.ps.dim == 3:
-            self.enforce_boundary_3D(self.ps.material_fluid)
+            self.enforce_boundary_3D(self.ps.material_fluid)  # self.ps.material_fluid = 1

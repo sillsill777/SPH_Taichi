@@ -466,7 +466,7 @@ class ParticleSystem:
         
         particle 5 has property object_id[5], x_0[5], x[5], v[5], acc[5], m_V[5], m[5],... with grid index 2
         
-        particle 6 has property object_id[6], x_0[6], x[6], v[6], acc[6], m_V[6], m[6],... with grid index 6
+        particle 6 has property object_id[6], x_0[6], x[6], v[6], acc[6], m_V[6], m[6],... with grid index 3
         """
     def initialize_particle_system(self):
         self.update_grid_id()
@@ -477,6 +477,21 @@ class ParticleSystem:
     def for_all_neighbors(self, p_i, task: ti.template(), ret: ti.template()):
         center_cell = self.pos_to_index(self.x[p_i])
         for offset in ti.grouped(ti.ndrange(*((-1, 2),) * self.dim)):
+            """
+            -offset
+            [-1, -1, -1]
+            [-1, -1, 0]
+            [-1, -1, 1]
+            [-1, 0, -1]
+            [-1, 0, 0]
+            [-1, 0, 1]
+            [-1, 1, -1]
+            ...
+            [1, 0, 1]
+            [1, 1, -1]
+            [1, 1, 0]
+            [1, 1, 1]
+            """
             grid_index = self.flatten_grid_index(center_cell + offset)
             for p_j in range(self.grid_particles_num[ti.max(0, grid_index - 1)], self.grid_particles_num[grid_index]):
                 if p_i[0] != p_j and (self.x[p_i] - self.x[p_j]).norm() < self.support_radius:
