@@ -59,7 +59,7 @@ class WCSPHSolver(SPHBase):
                 * self.cubic_kernel_derivative(x_i-x_j)
         elif self.ps.material[p_j] == self.ps.material_solid:
             # Boundary neighbors
-            dpj = self.ps.pressure[p_i] / self.density_0 ** 2
+            dpj = self.ps.pressure[p_i] / self.density_0** 2
             ## Akinci2012
             x_j = self.ps.x[p_j]
             # Compute the pressure force contribution, Symmetric Formula
