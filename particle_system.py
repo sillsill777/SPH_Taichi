@@ -476,7 +476,7 @@ class ParticleSystem:
     @ti.func
     def for_all_neighbors(self, p_i, task: ti.template(), ret: ti.template()):
         center_cell = self.pos_to_index(self.x[p_i])
-        for offset in ti.grouped(ti.ndrange(*((-1, 2),) * self.dim)):
+        for offset in ti.grouped(ti.ndrange(*(((-1, 2),) * self.dim))):
             """
             -offset
             [-1, -1, -1]
@@ -493,7 +493,8 @@ class ParticleSystem:
             [1, 1, 1]
             """
             grid_index = self.flatten_grid_index(center_cell + offset)
-            for p_j in range(self.grid_particles_num[ti.max(0, grid_index - 1)], self.grid_particles_num[grid_index]):
+            start_idx=0 if grid_index==0 else self.grid_particles_num[grid_index-1]
+            for p_j in range(start_idx, self.grid_particles_num[grid_index]):
                 if p_i[0] != p_j and (self.x[p_i] - self.x[p_j]).norm() < self.support_radius:
                     task(p_i, p_j, ret)
 
